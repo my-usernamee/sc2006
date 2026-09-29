@@ -1,0 +1,534 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================================
+   FoundIt design system.
+
+   Every colour, size, radius and timing used in the app is named here, so the
+   whole look can be changed from one file. The style follows Apple's Human
+   Interface guidance: the system font, a small set of semantic colours, and
+   translucent bars that content scrolls underneath.
+   =========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Colour ------------------------------------------------------------
+     Semantic names, not literal ones. "--label-2" means "less important
+     text", so it can go grey in light mode and near-white in dark mode
+     without renaming anything. */
+  --blue: #007aff;
+  --blue-pressed: #0062cc;
+  --red: #ff3b30;
+  --green: #34c759;
+  --amber: #ff9500;
+
+  --bg: #f2f2f7;                       /* the page behind the cards */
+  --surface: #ffffff;                  /* cards and rows */
+  --separator: rgba(60, 60, 67, 0.13); /* hairlines between rows */
+  --label: #000000;                    /* primary text */
+  --label-2: rgba(60, 60, 67, 0.6);    /* secondary text */
+  --label-3: rgba(60, 60, 67, 0.3);    /* placeholder text */
+  --fill: rgba(118, 118, 128, 0.12);   /* the inside of plain controls */
+  --chrome: rgba(249, 249, 251, 0.72); /* translucent header and tab bar */
+
+  --tint-blue-bg: rgba(0, 122, 255, 0.12);
+  --tint-green-bg: rgba(52, 199, 89, 0.14);
+  --tint-red-bg: rgba(255, 59, 48, 0.12);
+  --tint-amber-bg: rgba(255, 149, 0, 0.16);
+
+  /* --- Depth -------------------------------------------------------------
+     Bigger surfaces read as thicker, so they get a deeper shadow. */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 20px rgba(0, 0, 0, 0.05);
+  --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.1);
+
+  --radius: 14px;
+  --radius-lg: 18px;
+
+  /* --- Motion ------------------------------------------------------------
+     One easing curve for everything, borrowed from iOS sheets. It starts
+     fast and settles gently, so nothing overshoots or looks bouncy. */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --press: 110ms ease-out; /* deliberately very short: presses must feel instant */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --blue: #0a84ff;
+    --blue-pressed: #409cff;
+    --red: #ff453a;
+    --green: #30d158;
+    --amber: #ff9f0a;
+
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --separator: rgba(84, 84, 88, 0.5);
+    --label: #ffffff;
+    --label-2: rgba(235, 235, 245, 0.6);
+    --label-3: rgba(235, 235, 245, 0.3);
+    --fill: rgba(118, 118, 128, 0.24);
+    --chrome: rgba(28, 28, 30, 0.72);
+
+    --tint-blue-bg: rgba(10, 132, 255, 0.22);
+    --tint-green-bg: rgba(48, 209, 88, 0.22);
+    --tint-red-bg: rgba(255, 69, 58, 0.22);
+    --tint-amber-bg: rgba(255, 159, 10, 0.24);
+
+    --shadow-card: none;
+    --shadow-raised: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* --- Typography ----------------------------------------------------------
+   The system font is used on purpose: on a Mac or iPhone this is San
+   Francisco, which already handles letter spacing and legibility at every
+   size better than a web font would.
+
+   Tracking (letter spacing) is set per size rather than once globally. Large
+   text looks too loose at 0, so headings are tightened; small text needs a
+   little extra room, so captions are loosened. */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent; /* we draw our own press feedback */
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI',
+      system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--label);
+    font-size: 17px; /* Apple's body size, not the web default 16 */
+    line-height: 1.45;
+  }
+
+  /* Larger text gets tighter tracking and tighter leading. */
+  h1 {
+    font-size: 28px;
+    line-height: 1.14;
+    letter-spacing: -0.021em;
+    font-weight: 700;
+  }
+  h2 {
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    font-weight: 650;
+  }
+  h3 {
+    font-size: 17px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+}
+
+@layer components {
+  /* --- Text roles ------------------------------------------------------- */
+  .t-body {
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .t-sub {
+    font-size: 15px;
+    letter-spacing: -0.005em;
+    color: var(--label-2);
+  }
+  .t-foot {
+    font-size: 13px;
+    letter-spacing: 0.005em; /* small text needs slightly MORE tracking */
+    color: var(--label-2);
+  }
+  .t-caption {
+    font-size: 12px;
+    letter-spacing: 0.01em;
+    color: var(--label-2);
+  }
+
+  /* --- Buttons ----------------------------------------------------------
+     Feedback happens on press-down, not on release, and it is fast. Waiting
+     until the click completes is what makes a web page feel dead compared to
+     a native app. */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5;
+    min-height: 44px; /* Apple's minimum comfortable touch target */
+    padding: 0 18px;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 590;
+    letter-spacing: -0.01em;
+    transition:
+      transform var(--press),
+      background-color var(--press),
+      opacity var(--press);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+  }
+
+  .btn-primary {
+    @apply btn;
+    background: var(--blue);
+    color: #fff;
+  }
+  .btn-primary:active:not(:disabled) {
+    background: var(--blue-pressed);
+  }
+
+  .btn-secondary {
+    @apply btn;
+    background: var(--fill);
+    color: var(--blue);
+  }
+
+  .btn-danger {
+    @apply btn;
+    background: var(--tint-red-bg);
+    color: var(--red);
+  }
+
+  /* A small button that sits in a header row. */
+  .btn-sm {
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  /* --- Cards and grouped lists ------------------------------------------
+     The grouped-list pattern from iOS Settings: rows share one rounded
+     surface, separated by hairlines rather than by gaps. */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+  }
+
+  .list {
+    @apply card overflow-hidden;
+  }
+  .list-row {
+    @apply flex items-center justify-between gap-4;
+    padding: 12px 16px;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .list-row + .list-row {
+    border-top: 1px solid var(--separator);
+  }
+
+  /* Any card the user can tap gets the same press feedback as a button. */
+  .tappable {
+    transition:
+      transform var(--press),
+      opacity var(--press);
+  }
+  .tappable:active {
+    transform: scale(0.975);
+    opacity: 0.85;
+  }
+
+  /* --- Form controls ----------------------------------------------------- */
+  .input {
+    @apply w-full;
+    min-height: 44px;
+    padding: 11px 14px;
+    background: var(--surface);
+    color: var(--label);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    box-shadow: var(--shadow-card);
+    outline: none;
+    transition: border-color 150ms ease;
+  }
+  .input::placeholder {
+    color: var(--label-3);
+  }
+  .input:focus {
+    border-color: var(--blue);
+  }
+  .input:disabled {
+    color: var(--label-2);
+    background: var(--fill);
+    box-shadow: none;
+  }
+
+  select.input {
+    appearance: none;
+    /* The chevron is drawn here rather than imported, so there is no icon
+       library to install. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 20' fill='none' stroke='%238e8e93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8l3-3 3 3M3 12l3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 11px;
+    padding-right: 36px;
+  }
+
+  .label {
+    display: block;
+    margin-bottom: 7px;
+    margin-left: 2px;
+    font-size: 13px;
+    font-weight: 590;
+    letter-spacing: 0.005em;
+    color: var(--label-2);
+  }
+
+  /* The iOS slider: a thin track with a large white knob. */
+  .slider {
+    @apply w-full;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--fill);
+    outline: none;
+  }
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 10px rgba(0, 0, 0, 0.12);
+    cursor: grab;
+    transition: transform var(--press);
+  }
+  .slider::-webkit-slider-thumb:active {
+    transform: scale(1.12);
+    cursor: grabbing;
+  }
+
+  /* --- Segmented control (the tabs on the Claims page) ------------------- */
+  .segmented {
+    @apply flex;
+    padding: 2px;
+    background: var(--fill);
+    border-radius: 10px;
+  }
+  .segment {
+    @apply flex-1;
+    padding: 7px 0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 590;
+    letter-spacing: -0.01em;
+    color: var(--label);
+    transition:
+      background-color 220ms var(--ease),
+      transform var(--press);
+  }
+  .segment:active {
+    transform: scale(0.97);
+  }
+  .segment-active {
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  /* --- Badges ------------------------------------------------------------ */
+  .badge {
+    @apply inline-flex items-center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 590;
+    letter-spacing: 0.005em;
+    white-space: nowrap;
+  }
+
+  /* --- Translucent chrome ------------------------------------------------
+     The header and tab bar are a floating layer of frosted glass that page
+     content scrolls underneath, rather than opaque strips that permanently
+     eat space. */
+  .chrome {
+    background: var(--chrome);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+}
+
+/* --- Entrances -----------------------------------------------------------
+   A short, small rise. Big slides are distracting on every page load. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 340ms var(--ease) both;
+}
+
+/* --- Accessibility -------------------------------------------------------
+   Reduced motion does not mean no feedback. Movement is removed, but the
+   fades that explain what changed are kept. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .rise {
+    animation: none;
+  }
+}
+
+/* If the user has asked for less transparency, the frosted bars become solid
+   so text stays readable. */
+@media (prefers-reduced-transparency: reduce) {
+  .chrome {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .card,
+  .list,
+  .input {
+    border: 1px solid var(--label);
+  }
+}
+
+/* --- Map -----------------------------------------------------------------
+   Leaflet ships its own visual style, so these rules bring its controls and
+   our pin in line with the rest of the app. */
+
+/* The pin drops in and settles, so it is obvious something was placed. The
+   slight overshoot is appropriate here because the pin is "thrown" onto the
+   map by the tap. */
+@keyframes pin-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(1px) scale(1.02);
+  }
+  100% {
+    transform: none;
+  }
+}
+.foundit-pin {
+  animation: pin-drop 380ms var(--ease) both;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.22));
+}
+
+.leaflet-container {
+  font-family: inherit;
+  background: var(--fill);
+}
+
+/* Leaflet's zoom buttons, restyled as a small frosted control. */
+.leaflet-touch .leaflet-bar,
+.leaflet-bar {
+  border: none !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16), 0 6px 16px rgba(0, 0, 0, 0.1) !important;
+}
+.leaflet-bar a {
+  background: var(--chrome) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  color: var(--label) !important;
+  border-bottom-color: var(--separator) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 19px !important;
+  font-weight: 400;
+}
+.leaflet-control-attribution {
+  background: var(--chrome) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--label-2) !important;
+  font-size: 10px !important;
+  padding: 1px 6px !important;
+  border-radius: 6px 0 0 0;
+}
+.leaflet-control-attribution a {
+  color: var(--label-2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foundit-pin {
+    animation: none;
+  }
+}
+
+/* --- Loading skeletons ---------------------------------------------------
+   A soft sheen sweeps across the placeholder so it reads as "loading" rather
+   than as an empty box. Only `transform` moves, so this costs nothing. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--fill);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: sheen 1.4s infinite;
+}
+@media (prefers-color-scheme: dark) {
+  .skeleton::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.07),
+      transparent
+    );
+  }
+}
+@keyframes sheen {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Hover lift, for pointer devices only. On a phone there is no hover state,
+   and applying it there makes cards feel sticky after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  .tappable {
+    transition:
+      transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 220ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity var(--press);
+  }
+  .tappable:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-raised);
+  }
+  .tappable:active {
+    transform: scale(0.975) translateY(0);
+    transition: transform var(--press);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

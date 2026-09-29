@@ -1,0 +1,201 @@
+// FoundIt database schema.
+// Each model below maps to one entity in the SRS Data Dictionary (Section 6).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums (fixed dropdown values from the SRS) ----------
+
+// REQ-11: the Category dropdown
+enum Category {
+  ELECTRONICS
+  STATIONERY
+  CLOTHING
+  BAGS
+  ACCESSORIES
+  CARDS_DOCUMENTS
+  BOTTLES_CONTAINERS
+  KEYS
+  UMBRELLAS
+  SPORTS_EQUIPMENT
+  OTHER
+}
+
+// REQ-12: the Colour dropdown
+enum Colour {
+  BLACK
+  WHITE
+  GREY
+  RED
+  MAROON
+  PINK
+  ORANGE
+  YELLOW
+  GREEN
+  BLUE
+  NAVY
+  PURPLE
+  BROWN
+}
+
+enum LostStatus {
+  ACTIVE // REQ-23: status when created
+  RESOLVED // REQ-69: status after a claim is approved
+}
+
+enum FoundStatus {
+  OPEN // REQ-38: status when created
+  CLOSED // REQ-69: status after a claim is approved
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  MATCH_FOUND // REQ-51: to the Lost Item Owner
+  CLAIM_SUBMITTED // REQ-64: to the Finder
+  CLAIM_APPROVED // REQ-71: to the Lost Item Owner
+  CLAIM_REJECTED // REQ-71: to the Lost Item Owner
+}
+
+// ---------- Entities ----------
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique // REQ-4: no duplicate accounts
+  passwordHash     String // REQ-1: bcrypt hash, never the raw password
+  displayName      String // REQ-3
+  telegramUsername String // REQ-3, revealed only after REQ-70
+  createdAt        DateTime @default(now())
+
+  lostReports   LostItemReport[]
+  foundReports  FoundItemReport[]
+  claims        OwnershipClaim[]
+  notifications Notification[]
+}
+
+model LostItemReport {
+  id       String @id @default(cuid())
+  userId   String
+  itemName String
+
+  // REQ-10: every field below is required on the form
+  category     Category
+  colour       Colour
+  brand        String? // null means "Unknown" (REQ-16)
+  dateLost     DateTime @db.Date
+  locationName String
+  latitude     Float
+  longitude    Float
+
+  notificationThreshold Int // REQ-20: 0..100
+
+  photoPath          String? // REQ-17: optional, one photo
+  privateDescription String? // REQ-18/19: never shown publicly
+
+  status    LostStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  matches MatchResult[]
+  claims  OwnershipClaim[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model FoundItemReport {
+  id       String @id @default(cuid())
+  userId   String
+  itemName String
+
+  // REQ-27: every field below is required on the form
+  category     Category
+  colour       Colour
+  brand        String? // null means "Unknown" (REQ-29)
+  dateFound    DateTime @db.Date
+  locationName String
+  latitude     Float
+  longitude    Float
+  photoPath    String // REQ-30: photo is REQUIRED for found reports
+
+  privateDescription String? // REQ-34/35: never shown publicly
+
+  status    FoundStatus @default(OPEN)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  matches MatchResult[]
+  claims  OwnershipClaim[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+}
+
+// One row per (lost report, found report) pair that has been compared.
+model MatchResult {
+  id            String @id @default(cuid())
+  lostReportId  String
+  foundReportId String
+
+  matchScore Int // REQ-50: whole number 0..100
+  notified   Boolean @default(false) // REQ-52: stops a second notification for the same pair
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lostReport    LostItemReport  @relation(fields: [lostReportId], references: [id], onDelete: Cascade)
+  foundReport   FoundItemReport @relation(fields: [foundReportId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@unique([lostReportId, foundReportId])
+}
+
+model OwnershipClaim {
+  id            String      @id @default(cuid())
+  lostReportId  String // REQ-61: one of the claimant's Active lost reports
+  foundReportId String
+  claimantId    String
+  status        ClaimStatus @default(PENDING) // REQ-62
+  createdAt     DateTime    @default(now())
+  decidedAt     DateTime?
+
+  lostReport    LostItemReport  @relation(fields: [lostReportId], references: [id])
+  foundReport   FoundItemReport @relation(fields: [foundReportId], references: [id])
+  claimant      User            @relation(fields: [claimantId], references: [id])
+  notifications Notification[]
+
+  @@index([foundReportId, status])
+  @@index([claimantId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  type        NotificationType
+
+  // Exactly one of these is set, depending on the notification type.
+  matchResultId String?
+  claimId       String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  recipient   User            @relation(fields: [recipientId], references: [id])
+  matchResult MatchResult?    @relation(fields: [matchResultId], references: [id], onDelete: Cascade)
+  claim       OwnershipClaim? @relation(fields: [claimId], references: [id])
+
+  @@index([recipientId, createdAt])
+}

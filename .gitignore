@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# secrets
+.env
+.env.local
+*.env
+!.env.example
+
+# build output
+dist/
+build/
+
+# uploaded images (keep the folder, not the files)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# logs / os
+*.log
+npm-debug.log*
+.DS_Store
+
+# editor
+.vscode/
+.idea/
