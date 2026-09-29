@@ -11,7 +11,6 @@ FoundIt SRS v1.0.
 | Backend | Node + Express + TypeScript |
 | Database | PostgreSQL (Neon) via Prisma |
 | Auth | Email + password, bcrypt, JWT |
-| Tests | Vitest |
 
 ## Setup
 
