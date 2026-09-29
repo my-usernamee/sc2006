@@ -1,6 +1,6 @@
 # FoundIt
 
-Lost-and-found web app for NTU students. CE2006/CZ2006 project, built to the
+Lost-and-found web app. CE2006/CZ2006 project, built to the
 FoundIt SRS v1.0.
 
 ## Stack
