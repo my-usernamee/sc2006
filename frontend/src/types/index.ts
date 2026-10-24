@@ -1,33 +1,33 @@
 /** Shapes returned by the backend API. Kept in one file so they are easy to find. */
 
 export const CATEGORIES = [
-  'ELECTRONICS',
-  'STATIONERY',
-  'CLOTHING',
-  'BAGS',
-  'ACCESSORIES',
-  'CARDS_DOCUMENTS',
-  'BOTTLES_CONTAINERS',
-  'KEYS',
-  'UMBRELLAS',
-  'SPORTS_EQUIPMENT',
-  'OTHER',
+  "ELECTRONICS",
+  "STATIONERY",
+  "CLOTHING",
+  "BAGS",
+  "ACCESSORIES",
+  "CARDS_DOCUMENTS",
+  "BOTTLES_CONTAINERS",
+  "KEYS",
+  "UMBRELLAS",
+  "SPORTS_EQUIPMENT",
+  "OTHER",
 ] as const;
 
 export const COLOURS = [
-  'BLACK',
-  'WHITE',
-  'GREY',
-  'RED',
-  'MAROON',
-  'PINK',
-  'ORANGE',
-  'YELLOW',
-  'GREEN',
-  'BLUE',
-  'NAVY',
-  'PURPLE',
-  'BROWN',
+  "BLACK",
+  "WHITE",
+  "GREY",
+  "RED",
+  "MAROON",
+  "PINK",
+  "ORANGE",
+  "YELLOW",
+  "GREEN",
+  "BLUE",
+  "NAVY",
+  "PURPLE",
+  "BROWN",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
@@ -36,9 +36,9 @@ export type Colour = (typeof COLOURS)[number];
 /** Turns ELECTRONICS into "Electronics" and CARDS_DOCUMENTS into "Cards/Documents". */
 export function prettyLabel(value: string): string {
   const special: Record<string, string> = {
-    CARDS_DOCUMENTS: 'Cards/Documents',
-    BOTTLES_CONTAINERS: 'Bottles/Containers',
-    SPORTS_EQUIPMENT: 'Sports Equipment',
+    CARDS_DOCUMENTS: "Cards/Documents",
+    BOTTLES_CONTAINERS: "Bottles/Containers",
+    SPORTS_EQUIPMENT: "Sports Equipment",
   };
   if (special[value]) return special[value];
   return value.charAt(0) + value.slice(1).toLowerCase();
@@ -62,8 +62,14 @@ export interface FoundReport {
   latitude: number;
   longitude: number;
   photoUrl: string | null;
-  status: 'OPEN' | 'CLOSED';
+  status: "OPEN" | "CLOSED";
   finderDisplayName?: string;
+  isOwner?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canClaim?: boolean;
+  locked?: boolean;
+  locationToken: string;
   privateDescription?: string | null; // only present for the owner
 }
 
@@ -80,19 +86,26 @@ export interface LostReport {
   notificationThreshold: number;
   photoUrl: string | null;
   privateDescription: string | null;
-  status: 'ACTIVE' | 'RESOLVED';
+  status: "ACTIVE" | "RESOLVED";
+  canEdit?: boolean;
+  canDelete?: boolean;
+  locked?: boolean;
+  locationToken: string;
 }
 
 export interface MatchEntry {
+  id: string;
+  lostReportId: string;
   matchScore: number;
   foundReport: FoundReport;
 }
 
 export interface NotificationItem {
   id: string;
-  type: 'MATCH_FOUND' | 'CLAIM_SUBMITTED' | 'CLAIM_APPROVED' | 'CLAIM_REJECTED';
+  type: "MATCH_FOUND" | "CLAIM_SUBMITTED" | "CLAIM_APPROVED" | "CLAIM_REJECTED";
   createdAt: string;
   read: boolean;
+  matchResultId: string | null;
   matchScore: number | null;
   foundReportId: string | null;
   lostReportId: string | null;
@@ -107,8 +120,10 @@ export interface ClaimParty {
 }
 
 export interface Claim {
+  canReview: boolean;
+  viewerIsFinder: boolean;
   id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
   decidedAt: string | null;
   lostReport: {

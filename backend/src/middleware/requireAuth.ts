@@ -1,42 +1,42 @@
-/**
- * Authentication middleware.
- * Reads the "Authorization: Bearer <token>" header, checks the JWT signature,
- * and attaches the user's id to the request. Every protected route uses this.
- */
-import { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
-import { unauthorized } from '../lib/errors';
-
-// Tell TypeScript that requests may carry a userId that we put there.
+import crypto from "crypto";
+import { NextFunction, Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { unauthorized } from "../lib/errors";
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       userId?: string;
+      sessionId?: string;
     }
   }
 }
-
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const header = req.headers.authorization ?? '';
-
-  if (!header.startsWith('Bearer ')) {
-    return next(unauthorized());
-  }
-
+export const COOKIE_NAME = "foundit_session";
+export async function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
   try {
-    const payload = jwt.verify(header.slice('Bearer '.length), env.jwtSecret) as {
-      sub: string;
-    };
-    req.userId = payload.sub;
+    const cookie = (req.headers.cookie ?? "")
+      .split(";")
+      .map((x) => x.trim())
+      .find((x) => x.startsWith(COOKIE_NAME + "="))
+      ?.slice(COOKIE_NAME.length + 1);
+    const token = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7)
+      : cookie;
+    if (!token) throw unauthorized();
+    const id = crypto.createHash("sha256").update(token).digest("hex");
+    const session = await prisma.session.findUnique({ where: { id } });
+    if (!session || session.expiresAt.getTime() <= Date.now())
+      throw unauthorized("Your session has expired. Please log in again.");
+    req.userId = session.userId;
+    req.sessionId = id;
     next();
-  } catch {
-    next(unauthorized('Your session has expired. Please log in again.'));
+  } catch (e) {
+    next(e);
   }
 }
-
-/** Helper for route handlers: the user id, guaranteed to exist after requireAuth. */
 export function userIdOf(req: Request): string {
   if (!req.userId) throw unauthorized();
   return req.userId;

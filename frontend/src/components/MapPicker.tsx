@@ -8,13 +8,14 @@
  * The map tiles come from OneMap's public tile service and need no
  * credentials, which is why they can be loaded straight in the browser.
  */
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
-import { mapApi } from '../api';
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { useState, useRef } from "react";
+import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { mapApi } from "../api";
 
-const ONEMAP_TILES = 'https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png';
+const ONEMAP_TILES =
+  "https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png";
 const NTU_CENTRE: [number, number] = [1.3483, 103.6831];
 
 /**
@@ -26,7 +27,7 @@ const NTU_CENTRE: [number, number] = [1.3483, 103.6831];
  * it can never fail to load.
  */
 const pinIcon = L.divIcon({
-  className: '', // Leaflet adds a bordered box by default; we do not want it
+  className: "", // Leaflet adds a bordered box by default; we do not want it
   iconSize: [32, 40],
   iconAnchor: [16, 38], // the tip of the pin sits on the exact coordinate
   html: `
@@ -42,14 +43,21 @@ const pinIcon = L.divIcon({
 });
 
 export interface SelectedLocation {
+  locationToken: string;
   locationName: string;
   latitude: number;
   longitude: number;
 }
 
 /** Listens for taps on the map and reports the coordinates back. */
-function ClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
-  useMapEvents({ click: (event) => onPick(event.latlng.lat, event.latlng.lng) });
+function ClickHandler({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click: (event) => onPick(event.latlng.lat, event.latlng.lng),
+  });
   return null;
 }
 
@@ -58,36 +66,30 @@ export function MapPicker({
   onChange,
 }: {
   value: SelectedLocation | null;
-  onChange: (location: SelectedLocation) => void;
+  onChange: (location: SelectedLocation | null) => void;
 }) {
+  const requestId = useRef(0);
+  const [pin, setPin] = useState<SelectedLocation | null>(value);
   const [looking, setLooking] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
 
   async function handlePick(latitude: number, longitude: number) {
-    // Show the pin immediately, then fill in the name when OneMap replies.
-    // Waiting for the network before moving the pin would feel unresponsive.
-    onChange({
-      locationName: value?.locationName ?? '',
-      latitude,
-      longitude,
-    });
-
+    const current = ++requestId.current;
+    setPin({ locationName: "", locationToken: "", latitude, longitude });
+    onChange(null);
     setLooking(true);
     setWarning(null);
     try {
-      // REQ-15 / REQ-33: get the location name for the coordinates chosen.
-      onChange(await mapApi.reverseGeocode(latitude, longitude));
+      const result = await mapApi.reverseGeocode(latitude, longitude);
+      if (current !== requestId.current) return;
+      setPin(result);
+      onChange(result);
     } catch (e) {
-      // If OneMap is unavailable the user can still continue, because matching
-      // only ever needs the latitude and longitude.
+      if (current !== requestId.current) return;
       setWarning((e as Error).message);
-      onChange({
-        locationName: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
-        latitude,
-        longitude,
-      });
+      onChange(null);
     } finally {
-      setLooking(false);
+      if (current === requestId.current) setLooking(false);
     }
   }
 
@@ -95,9 +97,16 @@ export function MapPicker({
     <div>
       <div
         className="overflow-hidden"
-        style={{ borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-card)' }}
+        style={{
+          borderRadius: "var(--radius)",
+          boxShadow: "var(--shadow-card)",
+        }}
       >
-        <MapContainer center={NTU_CENTRE} zoom={16} style={{ height: 260, width: '100%' }}>
+        <MapContainer
+          center={NTU_CENTRE}
+          zoom={16}
+          style={{ height: 260, width: "100%" }}
+        >
           <TileLayer
             url={ONEMAP_TILES}
             attribution='<a href="https://www.onemap.gov.sg/">OneMap</a> &copy; Singapore Land Authority'
@@ -105,10 +114,10 @@ export function MapPicker({
             maxZoom={19}
           />
           <ClickHandler onPick={handlePick} />
-          {value && (
+          {pin && (
             <Marker
-              key={`${value.latitude},${value.longitude}`} // remount so the pin re-drops
-              position={[value.latitude, value.longitude]}
+              key={`${pin.latitude},${pin.longitude}`} // remount so the pin re-drops
+              position={[pin.latitude, pin.longitude]}
               icon={pinIcon}
             />
           )}
@@ -117,20 +126,23 @@ export function MapPicker({
 
       <p className="t-foot mt-2.5 px-0.5">
         {looking ? (
-          'Finding this place...'
+          "Finding this place..."
         ) : value?.locationName ? (
           <>
-            <span style={{ color: 'var(--label-2)' }}>Selected&nbsp;</span>
-            <span style={{ color: 'var(--label)', fontWeight: 590 }}>{value.locationName}</span>
+            <span style={{ color: "var(--label-2)" }}>Selected&nbsp;</span>
+            <span style={{ color: "var(--label)", fontWeight: 590 }}>
+              {value.locationName}
+            </span>
           </>
         ) : (
-          'Tap the map to drop a pin where the item was.'
+          "Tap the map to drop a pin where the item was."
         )}
       </p>
 
       {warning && (
-        <p className="t-caption mt-1 px-0.5" style={{ color: 'var(--amber)' }}>
-          {warning} The coordinates were saved without a place name.
+        <p className="t-caption mt-1 px-0.5" style={{ color: "var(--amber)" }}>
+          {warning} Please select a point again. A successful location lookup is
+          required.
         </p>
       )}
     </div>

@@ -17,19 +17,19 @@
 // looking up Blue+Navy and Navy+Blue both find the same entry.
 // ---------------------------------------------------------------------------
 const SIMILAR_COLOUR_PAIRS = new Set([
-  key('BLACK', 'GREY'),
-  key('WHITE', 'GREY'),
-  key('RED', 'MAROON'),
-  key('RED', 'PINK'),
-  key('RED', 'ORANGE'),
-  key('ORANGE', 'YELLOW'),
-  key('BLUE', 'NAVY'),
-  key('BLUE', 'PURPLE'),
-  key('PINK', 'PURPLE'),
+  key("BLACK", "GREY"),
+  key("WHITE", "GREY"),
+  key("RED", "MAROON"),
+  key("RED", "PINK"),
+  key("RED", "ORANGE"),
+  key("ORANGE", "YELLOW"),
+  key("BLUE", "NAVY"),
+  key("BLUE", "PURPLE"),
+  key("PINK", "PURPLE"),
 ]);
 
 function key(a: string, b: string): string {
-  return [a, b].sort().join('|');
+  return [a, b].sort().join("|");
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ export function colourSimilarity(lost: string, found: string): number {
 /**
  * Brand similarity: 100 if the brands match (case-insensitive), else 0.
  * Only called when BOTH brands are known - an unknown brand is excluded from
- * the calculation entirely (REQ-48), handled in calculateMatchScore below.
+ * the calculation entirely (REQ-49), handled in calculateMatchScore below.
  */
 export function brandSimilarity(lost: string, found: string): number {
   return lost.trim().toLowerCase() === found.trim().toLowerCase() ? 100 : 0;
@@ -115,7 +115,10 @@ export function haversineKm(
 
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
 
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
@@ -126,9 +129,12 @@ export function haversineKm(
 
 /**
  * Compares one Lost Item Report with one Found Item Report and returns a whole
- * number from 0 to 100 (REQ-45 to REQ-50).
+ * number from 0 to 100 (REQ-45 to REQ-51).
  */
-export function calculateMatchScore(lost: MatchInput, found: MatchInput): number {
+export function calculateMatchScore(
+  lost: MatchInput,
+  found: MatchInput,
+): number {
   // --- Rejection check 1: the item cannot be found before it was lost (REQ-47)
   if (daysBetween(lost.date, found.date) < 0) return 0;
 
@@ -147,7 +153,7 @@ export function calculateMatchScore(lost: MatchInput, found: MatchInput): number
 
   // --- Weighted average.
   // If either brand is "Unknown", brand is dropped and the remaining weights
-  // are normalised by dividing by 95 instead of 100 (REQ-48).
+  // are normalised by dividing by 95 instead of 100 (REQ-49).
   const brandIsKnown = lost.brand !== null && found.brand !== null;
 
   let score: number;
@@ -161,10 +167,13 @@ export function calculateMatchScore(lost: MatchInput, found: MatchInput): number
       100;
   } else {
     score =
-      (WEIGHT_COLOUR * sColour + WEIGHT_DATE * sDate + WEIGHT_LOCATION * sLocation) / 95;
+      (WEIGHT_COLOUR * sColour +
+        WEIGHT_DATE * sDate +
+        WEIGHT_LOCATION * sLocation) /
+      95;
   }
 
-  // --- Round to the nearest whole number and keep it inside 0..100 (REQ-50)
+  // --- Round to the nearest whole number and keep it inside 0..100 (REQ-51)
   return clamp(Math.round(score), 0, 100);
 }
 

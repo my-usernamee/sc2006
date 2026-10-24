@@ -1,0 +1,2 @@
+const {spawnSync}=require('node:child_process');
+const result=spawnSync(process.execPath,['node_modules/vitest/vitest.mjs','run','tests/application.integration.test.ts','--no-file-parallelism'],{stdio:'inherit',env:{...process.env,RUN_INTEGRATION:'1'}});process.exit(result.status??1);

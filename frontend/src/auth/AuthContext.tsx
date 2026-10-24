@@ -3,10 +3,16 @@
  * On start-up it checks whether the saved token still works; if it does not,
  * the user is simply treated as logged out.
  */
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { authApi } from '../api';
-import { getToken, setToken } from '../api/client';
-import { Account } from '../types';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { authApi } from "../api";
+
+import { Account } from "../types";
 
 interface AuthValue {
   user: Account | null;
@@ -18,7 +24,7 @@ interface AuthValue {
     displayName: string;
     telegramUsername: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   setUser: (user: Account) => void;
 }
 
@@ -29,37 +35,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!getToken()) {
-      setLoading(false);
-      return;
-    }
     authApi
       .me()
       .then(setUser)
-      .catch(() => setToken(null)) // expired or invalid token
+      .catch(() => setUser(null)) // expired or invalid token
       .finally(() => setLoading(false));
   }, []);
 
-  const login: AuthValue['login'] = async (email, password) => {
-    const { token, user } = await authApi.login({ email, password });
-    setToken(token);
+  const login: AuthValue["login"] = async (email, password) => {
+    const { user } = await authApi.login({ email, password });
+
     setUser(user);
   };
 
-  const register: AuthValue['register'] = async (input) => {
-    const { token, user } = await authApi.register(input);
-    setToken(token);
+  const register: AuthValue["register"] = async (input) => {
+    const { user } = await authApi.register(input);
+
     setUser(user);
   };
 
-  // REQ-8: logging out just discards the token.
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    await authApi.logout();
     setUser(null);
+    localStorage.removeItem("foundit_token");
   };
+  useEffect(() => {
+    const expired = () => setUser(null);
+    window.addEventListener("foundit:unauthorized", expired);
+    return () => window.removeEventListener("foundit:unauthorized", expired);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, logout, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -67,6 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthValue {
   const value = useContext(AuthContext);
-  if (!value) throw new Error('useAuth must be used inside <AuthProvider>.');
+  if (!value) throw new Error("useAuth must be used inside <AuthProvider>.");
   return value;
 }

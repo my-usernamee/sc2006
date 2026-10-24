@@ -2,10 +2,10 @@
  * One lost item report: its details, its possible matches (REQ-53), and the
  * edit and delete actions (REQ-24, REQ-25).
  */
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { lostApi } from '../api';
-import { FoundReportCard } from '../components/ReportCard';
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { lostApi } from "../api";
+import { FoundReportCard } from "../components/ReportCard";
 import {
   ErrorMessage,
   formatBrand,
@@ -14,11 +14,11 @@ import {
   PageTitle,
   Row,
   StatusBadge,
-} from '../components/ui';
-import { LostReport, MatchEntry, prettyLabel } from '../types';
+} from "../components/ui";
+import { LostReport, MatchEntry, prettyLabel } from "../types";
 
 export function LostReportDetailPage() {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
   const navigate = useNavigate();
 
   const [report, setReport] = useState<LostReport | null>(null);
@@ -37,23 +37,26 @@ export function LostReportDetailPage() {
   }, [id]);
 
   async function handleDelete() {
-    if (!confirm('Delete this lost item report? This cannot be undone.')) return;
+    if (!confirm("Delete this lost item report? This cannot be undone."))
+      return;
     try {
       await lostApi.remove(id);
-      navigate('/lost');
+      navigate("/lost");
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
   if (loading) return <Loading />;
-  if (!report) return <ErrorMessage message={error ?? 'Report not found.'} />;
+  if (!report) return <ErrorMessage message={error ?? "Report not found."} />;
 
-  const isActive = report.status === 'ACTIVE';
+  const isActive = report.canEdit;
 
   return (
     <div>
-      <PageTitle action={<StatusBadge status={report.status} />}>{report.itemName}</PageTitle>
+      <PageTitle action={<StatusBadge status={report.status} />}>
+        {report.itemName}
+      </PageTitle>
       <ErrorMessage message={error} />
 
       {report.photoUrl && (
@@ -85,6 +88,11 @@ export function LostReportDetailPage() {
 
       {/* REQ-24 / REQ-25: editing and deleting are only offered while Active.
           The backend also refuses if an ownership claim is pending (REQ-63). */}
+      {report.locked && (
+        <p className="card mb-4 p-4">
+          This report is locked while an ownership claim is Pending.
+        </p>
+      )}
       {isActive && (
         <div className="mb-6 flex gap-3">
           <Link to={`/lost/${report.id}/edit`} className="btn-secondary flex-1">
@@ -100,7 +108,8 @@ export function LostReportDetailPage() {
       <h2 className="mb-3 text-lg font-semibold">Possible matches</h2>
       {matches.length === 0 ? (
         <p className="text-sm text-[var(--label-2)]">
-          No found items have reached your match score of {report.notificationThreshold} yet.
+          No found items have reached your match score of{" "}
+          {report.notificationThreshold} yet.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3">
@@ -108,7 +117,7 @@ export function LostReportDetailPage() {
             <div key={match.foundReport.id}>
               <FoundReportCard
                 report={match.foundReport}
-                to={`/browse/${match.foundReport.id}`}
+                to={`/browse/${match.foundReport.id}?lost=${report.id}&match=${match.id}`}
               />
               <p className="mt-1 text-center text-xs font-medium text-[var(--blue)]">
                 Match score {match.matchScore}
@@ -120,4 +129,3 @@ export function LostReportDetailPage() {
     </div>
   );
 }
-

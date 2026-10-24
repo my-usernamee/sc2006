@@ -1,170 +1,84 @@
-# FoundIt
+# FoundIt — presentation setup
 
-Lost-and-found web app. CE2006/CZ2006 project, built to the
-FoundIt SRS v1.0.
+Start here: [Deployment and API key setup](docs/DEPLOYMENT.md). The app starts empty; register your own accounts and upload your own item photos.
 
-## Stack
+This is the existing React/Tailwind, Express/TypeScript and Prisma/PostgreSQL application, updated against the supplied final FoundIt SRS. The original pages, matching formula and project structure are retained. Start with the instructions below; the ZIP intentionally contains no personal credentials, database or uploaded user photos.
 
-| Layer | Choice |
-|---|---|
-| Frontend | React 18 + Vite + TypeScript + Tailwind, Leaflet for maps |
-| Backend | Node + Express + TypeScript |
-| Database | PostgreSQL (Neon) via Prisma |
-| Auth | Email + password, bcrypt, JWT |
+## Open and run in VS Code
 
-## Setup
+1. Extract the ZIP. In VS Code, choose **File → Open Folder** and select `foundit`, the folder containing this README and the root `package.json`.
+2. Install Node.js 22 LTS or later and PostgreSQL, or use your existing Neon PostgreSQL database.
+3. Open **Terminal → New Terminal** in VS Code and run:
 
-```bash
-git clone https://github.com/my-usernamee/sc2006.git
-cd sc2006
-cp backend/.env.example backend/.env    # fill it in, see below
-./start.sh
+```sh
+npm ci
+npm run install:all
 ```
 
-Open http://localhost:5173. Ctrl+C stops both servers.
+4. Copy `backend/.env.example` to `backend/.env` using the file explorer. Fill in `DATABASE_URL`, a long random `JWT_SECRET`, and your `ONEMAP_EMAIL` and `ONEMAP_PASSWORD` (or a valid `ONEMAP_TOKEN`). Keep this file private. The retained `JWT_SECRET` setting signs location selections; login now uses revocable cookie sessions rather than JWTs.
+5. Apply migrations, then start the existing frontend and backend together:
 
-First time on a fresh database, before `./start.sh`:
-
-```bash
-cd backend && npx prisma migrate dev && npm run seed
+```sh
+npm run db:deploy
+npm run dev
 ```
 
-Seeded logins, password `password123`: `alice001@e.ntu.edu.sg`,
-`ben002@e.ntu.edu.sg`.
+6. Open **http://localhost:5173**. Register two different `@e.ntu.edu.sg` accounts to try the owner/Finder workflow. Registration signs you in. OneMap must be configured for report location selection to succeed. A failed lookup deliberately prevents submission.
 
-### backend/.env
+The Vite development server proxies `/api` and `/uploads` to the backend. Keep the default `CORS_ORIGIN=http://localhost:5173` for this setup. Do not open the Vite app on a different host/port without updating that setting.
 
-Gitignored, never committed. **This repo is public — do not put real values in
-any committed file.**
+`npm run db:seed` is now a harmless no-op: sample accounts, reports and downloaded photos have been removed from the seed script. Use a new empty database and run migrations to start fresh. Changing the seed does not erase data in an existing remote database.
 
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Neon connection string — **ask the team, this is the only shared one** |
-| `JWT_SECRET` | your own: `openssl rand -base64 48` |
-| `ONEMAP_EMAIL` / `ONEMAP_PASSWORD` | your own free account at [onemap](https://www.onemap.gov.sg/apidocs/register) |
-| `PORT` | `3000` |
-| `CORS_ORIGIN` | `http://localhost:5173` |
+## Existing database upgrade
 
-Send the `DATABASE_URL` by DM, not in a public channel. If it leaks, rotate the
-password in Neon and re-send — no code changes.
+Back up your database and `backend/uploads` before upgrading. `npm run db:deploy` applies the new integrity/session migration without resetting your database. Existing users and reports remain; users log in again because old local-storage tokens are no longer accepted. The migration removes duplicate match notifications, backfills match eligibility and adds database constraints.
 
-### Manual start
+If your old database already has multiple Pending claims for the same report, the new unique index intentionally refuses migration. Resolve those conflicting claims through an agreed review of the existing records, then rerun migration. Do not reset a database containing work you need. Use a pooled Neon URL for runtime if appropriate and a provider-supported migration connection for deployment.
 
-```bash
-cd backend  && npm install && npm run dev     # :3000
-cd frontend && npm install && npm run dev     # :5173
+## Build and run the compiled app
+
+```sh
+npm run build
+npm start
 ```
 
-### Tests
+The backend serves both the compiled frontend and API at http://localhost:3000. For this mode set `CORS_ORIGIN=http://localhost:3000` in `backend/.env`. Set `NODE_ENV=production` when deploying behind HTTPS, and set `CORS_ORIGIN` to the exact public HTTPS origin. Production cookies are Secure and therefore require HTTPS; use development mode for local HTTP.
 
-```bash
-cd backend && npm test
+The app uses a single origin so protected photo URLs and HttpOnly session cookies work together. Put TLS termination in front of Express. Preserve `backend/uploads` across restarts and deployments and back it up alongside PostgreSQL. Do not put a production instance on an ephemeral filesystem without a persistent volume.
+
+## Docker alternative
+
+Set `JWT_SECRET` and OneMap credentials in your shell or a private root `.env`, then run:
+
+```sh
+docker compose up --build
 ```
 
-## Flow
+Open http://localhost:3000. Compose provides PostgreSQL and persistent database/photo volumes. The provided Compose configuration is local development. For public deployment use HTTPS, production mode, the real public origin and private database credentials. Do not use `docker compose down -v` if you need to retain data.
 
-```
-register / log in
-   ├── report lost item ──┐
-   ├── report found item ─┴─> matching runs automatically
-   │                              └─> score >= threshold -> notification
-   ├── browse / search found items
-   └── claim a found item -> finder approves -> Telegram handles exchanged
-                                  └─ rejects  -> claimant may retry
+## Tests
+
+```sh
+npm test
 ```
 
-Every request goes:
+Runs matching and validation unit tests. Database tests are skipped unless explicitly enabled.
 
-```
-route -> validation -> service -> Prisma -> PostgreSQL
-                          ├─> domain/matching.ts  (pure maths)
-                          └─> dto/                (strip private fields)
-```
+For integration tests, create a **separate disposable database with `foundit_test` in its name**, apply both migrations to it, and set `TEST_DATABASE_URL` in your shell before running:
 
-Routes are dumb, services are smart, domain is pure. Business rules go in a
-service, never a route.
-
-### Matching
-
-On create/edit, a report is compared against every Active+Open report in the
-same category. Two rejection checks first (different category, found date before
-lost date) force a 0. Otherwise a weighted score out of 100:
-
-| Attribute | Weight |
-|---|---|
-| Location | 40 |
-| Date | 30 |
-| Colour | 25 (100 same, 50 similar pair, else 0) |
-| Brand | 5 ("Unknown" never penalises) |
-
-Clears the threshold and the pair has never notified before → notification. A
-pair never notifies twice.
-
-## Layout
-
-```
-backend/src/
-  routes/       HTTP in and out only
-  services/     business rules
-  domain/       pure functions, no DB (the matching maths)
-  dto/          who may see which fields
-  validation/   request body checks
-  middleware/   auth, upload, errors
-  prisma/       schema + migrations
-
-frontend/src/
-  pages/        one per screen
-  components/   layout, report form, map picker
-  api/          typed fetch wrappers
-  auth/         current user
+```sh
+npm run test:integration
 ```
 
-API: `/api/auth`, `/api/users`, `/api/lost-reports`, `/api/found-reports`,
-`/api/claims`, `/api/notifications`, `/api/onemap`, plus `/uploads` for photos.
-`GET /` is a 404 on purpose — seeing it means the backend is up.
+**Integration tests truncate application tables in that test database. Never use your application database.** The runner rejects database names without `foundit_test`. You can apply migrations with `DATABASE_URL` temporarily set to that test database in a separate terminal. Restore your normal value before running the app.
 
-## Git
+Browser tests use a dedicated test server and a deterministic OneMap fixture, never a production fallback. Build the frontend first, install Playwright Chromium with `cd frontend` then `npx playwright install chromium`, return to the root, and start `backend/scripts/e2e-server.ts` using `npx tsx` from the backend folder with `DATABASE_URL` pointing to the migrated disposable database, `NODE_ENV=test`, a test `JWT_SECRET`, `ONEMAP_TOKEN=fixture`, and `CORS_ORIGIN=http://127.0.0.1:3000`. In another terminal run `npm run test:e2e` from the root. The test server refuses non-test mode/databases. See `docs/TEST_RESULTS.md` for the checks actually performed.
 
-```bash
-git pull
-git switch -c feature/thing
-git add -A && git commit -m "..."
-git push -u origin feature/thing        # then open a PR
-```
+## What changed and where to look
 
-Changed `schema.prisma`? Run `npx prisma migrate dev --name what_changed` and
-commit the migration folder. After pulling someone else's, run
-`npx prisma migrate dev` so your client matches.
+- [Changes](docs/CHANGES.md)
+- [SRS traceability](docs/TRACEABILITY.md)
+- [Implementation and design alignment](docs/DESIGN_ALIGNMENT.md)
+- [Test results and verification limits](docs/TEST_RESULTS.md)
 
-`node_modules/`, `dist/`, `backend/.env` and uploaded photos are gitignored. If
-git offers to commit one, stop and ask.
-
-## Where the SRS lives in the code
-
-| What | Where |
-|---|---|
-| Match Score (4.4.4) | `backend/src/domain/matching.ts` |
-| When matching runs (REQ-41..44, 54) | `backend/src/services/matching.service.ts` |
-| Claim state machine (REQ-60..71) | `backend/src/services/claim.service.ts` |
-| Privacy rules (REQ-19, 35, 59, 66, 70) | `backend/src/dto/index.ts` |
-| `@e.ntu.edu.sg` rule (REQ-2) | `backend/src/validation/schemas.ts` |
-| Black box tests | `backend/tests/matching.equivalence.test.ts` |
-| White box tests | `backend/tests/matching.basispath.test.ts` |
-
-## Decisions the SRS did not cover
-
-1. Editing a report can trigger a notification, if the edit pushes a score over
-   the threshold and that pair never notified before.
-2. You cannot claim your own found report.
-3. Only one pending claim per report, or the REQ-63 freeze is ambiguous.
-4. A rejected claim may be resubmitted.
-5. Future dates are rejected.
-6. A score of 0 never notifies, even at threshold 0 (REQ-47).
-7. Match results are kept after approval as a record, but the reports stop being
-   compared (REQ-44).
-
-## Limitations
-
-- Images sit on the server's disk; a host that resets its filesystem loses them.
-- Photo URLs are unguessable random names, not access-controlled routes.
-- No password reset, no email verification. Neither is in the SRS.
+The implementation is complete for the documented feature set. Your real Neon connection, live OneMap account, HTTPS host and production response times must still be checked in your deployment. Supplied Lab 3 PDFs/images were reference inputs and have not been rewritten. Use the design alignment notes when updating final submission diagrams.

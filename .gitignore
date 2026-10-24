@@ -23,3 +23,7 @@ npm-debug.log*
 # editor
 .vscode/
 .idea/
+
+**/test-results/
+**/playwright-report/
+*.tsbuildinfo

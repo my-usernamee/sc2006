@@ -2,9 +2,9 @@
  * One found item, with the button that starts an ownership claim.
  * REQ-60 / REQ-61: to claim, the user picks one of their own Active lost reports.
  */
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { claimApi, foundApi, lostApi } from '../api';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { claimApi, foundApi, lostApi } from "../api";
 import {
   ErrorMessage,
   formatBrand,
@@ -13,30 +13,73 @@ import {
   PageTitle,
   Row,
   StatusBadge,
-} from '../components/ui';
-import { FoundReport, LostReport, prettyLabel } from '../types';
+} from "../components/ui";
+import { FoundReport, LostReport, prettyLabel } from "../types";
 
 export function FoundReportDetailPage() {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
+  const [params] = useSearchParams();
+  const lostId = params.get("lost"),
+    matchId = params.get("match");
+  const [matchContext, setMatchContext] = useState<{
+    matchScore: number;
+    lostItemName: string;
+    available: boolean;
+  } | null>(null);
   const navigate = useNavigate();
 
   const [report, setReport] = useState<FoundReport | null>(null);
   const [myLostReports, setMyLostReports] = useState<LostReport[]>([]);
-  const [selectedLostId, setSelectedLostId] = useState('');
+  const [selectedLostId, setSelectedLostId] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([foundApi.get(id), lostApi.mine()])
-      .then(([foundReport, lostReports]) => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    setSelectedLostId("");
+    const matchRequest =
+      lostId && matchId
+        ? lostApi.match(lostId, matchId)
+        : Promise.resolve(null);
+    Promise.all([
+      matchRequest.then((m) =>
+        m
+          ? {
+              ...m.foundReport,
+              canClaim: m.available && m.foundReport.canClaim,
+            }
+          : foundApi.get(id),
+      ),
+      lostApi.mine(),
+      matchRequest,
+    ])
+      .then(([foundReport, lostReports, match]) => {
+        if (!active) return;
+        if (match && match.foundReport.id !== id)
+          throw new Error("This match belongs to a different report.");
+        setMatchContext(match);
+        if (match?.available && lostId) setSelectedLostId(lostId);
         setReport(foundReport);
-        // REQ-61: only Active reports may be attached to a claim.
-        setMyLostReports(lostReports.filter((r) => r.status === 'ACTIVE'));
+        setMyLostReports(
+          lostReports.filter((r) => r.status === "ACTIVE" && !r.locked),
+        );
       })
-      .catch((e) => setError((e as Error).message))
-      .finally(() => setLoading(false));
-  }, [id]);
+      .catch((e) => {
+        if (active) {
+          setReport(null);
+          setError((e as Error).message);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, lostId, matchId]);
 
   async function handleClaim() {
     setError(null);
@@ -55,13 +98,27 @@ export function FoundReportDetailPage() {
   }
 
   if (loading) return <Loading />;
-  if (!report) return <ErrorMessage message={error ?? 'Report not found.'} />;
+  if (!report) return <ErrorMessage message={error ?? "Report not found."} />;
 
   return (
     <div>
-      <PageTitle action={<StatusBadge status={report.status} />}>{report.itemName}</PageTitle>
+      <PageTitle action={<StatusBadge status={report.status} />}>
+        {report.itemName}
+      </PageTitle>
       <ErrorMessage message={error} />
 
+      {matchContext && (
+        <div className="card mb-4 p-4">
+          <strong>Match Score: {matchContext.matchScore}</strong>
+          <p>Compared with your lost report: {matchContext.lostItemName}</p>
+          {!matchContext.available && (
+            <p>
+              This is a historical match. The reports are no longer eligible for
+              a claim.
+            </p>
+          )}
+        </div>
+      )}
       {report.photoUrl && (
         <img
           src={report.photoUrl}
@@ -77,7 +134,9 @@ export function FoundReportDetailPage() {
         <Row label="Brand" value={formatBrand(report.brand)} />
         <Row label="Date found" value={formatDate(report.dateFound)} />
         <Row label="Location" value={report.locationName} />
-        {report.finderDisplayName && <Row label="Found by" value={report.finderDisplayName} />}
+        {report.finderDisplayName && (
+          <Row label="Found by" value={report.finderDisplayName} />
+        )}
       </div>
 
       {/*
@@ -85,11 +144,12 @@ export function FoundReportDetailPage() {
         deliberately absent here - the backend never sends them to this screen.
       */}
 
-      {report.status === 'OPEN' ? (
+      {report.canClaim && (!matchContext || matchContext.available) ? (
         <div className="card p-4">
           <h2 className="mb-1 font-medium">Is this yours?</h2>
           <p className="mb-3 text-sm text-[var(--label-2)]">
-            Choose the lost item report this matches. The finder will review your claim.
+            Choose the lost item report this matches. The finder will review
+            your claim.
           </p>
 
           {myLostReports.length === 0 ? (
@@ -116,17 +176,20 @@ export function FoundReportDetailPage() {
                 disabled={!selectedLostId || claiming}
                 onClick={handleClaim}
               >
-                {claiming ? 'Submitting...' : 'Claim this item'}
+                {claiming ? "Submitting..." : "Claim this item"}
               </button>
             </div>
           )}
         </div>
       ) : (
         <div className="card p-4 text-sm text-[var(--label-2)]">
-          This item has already been returned to its owner.
+          {report.isOwner
+            ? "This is your found report. Manage it from the Found tab."
+            : report.locked
+              ? "This report is currently linked to a Pending claim."
+              : "This item is no longer available to claim."}
         </div>
       )}
     </div>
   );
 }
-

@@ -6,11 +6,11 @@
  *   - REQ-70: the Telegram usernames appear only once the claim is approved
  * The frontend simply shows a section when the field is present.
  */
-import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { claimApi } from '../api';
-import { EASE_OUT, SPRING } from '../components/motion';
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { claimApi } from "../api";
+import { EASE_OUT, SPRING } from "../components/motion";
 import {
   ErrorMessage,
   formatBrand,
@@ -18,11 +18,11 @@ import {
   Loading,
   PageTitle,
   StatusBadge,
-} from '../components/ui';
-import { Claim, prettyLabel } from '../types';
+} from "../components/ui";
+import { Claim, prettyLabel } from "../types";
 
 export function ClaimDetailPage() {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
   const [claim, setClaim] = useState<Claim | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -38,14 +38,16 @@ export function ClaimDetailPage() {
 
   async function decide(approve: boolean) {
     const question = approve
-      ? 'Approve this claim? Your Telegram usernames will be shared with each other and both reports will be closed.'
-      : 'Reject this claim?';
+      ? "Approve this claim? Your Telegram usernames will be shared with each other and both reports will be closed."
+      : "Reject this claim?";
     if (!confirm(question)) return;
 
     setBusy(true);
     setError(null);
     try {
-      setClaim(approve ? await claimApi.approve(id) : await claimApi.reject(id));
+      setClaim(
+        approve ? await claimApi.approve(id) : await claimApi.reject(id),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -54,15 +56,17 @@ export function ClaimDetailPage() {
   }
 
   if (loading) return <Loading />;
-  if (!claim) return <ErrorMessage message={error ?? 'Claim not found.'} />;
+  if (!claim) return <ErrorMessage message={error ?? "Claim not found."} />;
 
   // If the backend sent us the private descriptions, we are the Finder (REQ-66).
-  const isFinder = claim.foundReport.privateDescription !== undefined;
-  const isPending = claim.status === 'PENDING';
+  const isFinder = claim.viewerIsFinder;
+  const isPending = claim.status === "PENDING";
 
   return (
     <div>
-      <PageTitle action={<StatusBadge status={claim.status} />}>Ownership claim</PageTitle>
+      <PageTitle action={<StatusBadge status={claim.status} />}>
+        Ownership claim
+      </PageTitle>
       <ErrorMessage message={error} />
 
       {/* REQ-65: the Finder can see the lost item report attached to the claim. */}
@@ -96,7 +100,7 @@ export function ClaimDetailPage() {
       </div>
 
       {/* REQ-67: only the Finder decides, and only while the claim is Pending. */}
-      {isFinder && isPending && (
+      {claim.canReview && isPending && (
         <motion.div
           className="card mb-5 p-4"
           initial={{ opacity: 0, y: 8 }}
@@ -105,13 +109,22 @@ export function ClaimDetailPage() {
         >
           <h2 className="mb-1">Do the two descriptions match?</h2>
           <p className="t-sub mb-4">
-            Approving shares your Telegram usernames with each other and closes both reports.
+            Approving shares your Telegram usernames with each other and closes
+            both reports.
           </p>
           <div className="flex gap-3">
-            <button className="btn-primary flex-1" disabled={busy} onClick={() => decide(true)}>
+            <button
+              className="btn-primary flex-1"
+              disabled={busy}
+              onClick={() => decide(true)}
+            >
               Approve
             </button>
-            <button className="btn-danger flex-1" disabled={busy} onClick={() => decide(false)}>
+            <button
+              className="btn-danger flex-1"
+              disabled={busy}
+              onClick={() => decide(false)}
+            >
               Reject
             </button>
           </div>
@@ -125,7 +138,7 @@ export function ClaimDetailPage() {
       )}
 
       {/* REQ-70: contact details, shown only after approval. */}
-      {claim.status === 'APPROVED' && (
+      {claim.status === "APPROVED" && (
         <motion.div
           className="card overflow-hidden"
           initial={{ opacity: 0, y: 16, scale: 0.97 }}
@@ -134,29 +147,37 @@ export function ClaimDetailPage() {
         >
           <div
             className="flex items-center gap-3.5 p-4"
-            style={{ background: 'var(--tint-green-bg)' }}
+            style={{ background: "var(--tint-green-bg)" }}
           >
             <AnimatedTick />
             <div>
-              <h2 style={{ color: 'var(--green)' }}>Claim approved</h2>
+              <h2 style={{ color: "var(--green)" }}>Claim approved</h2>
               <p className="t-sub mt-0.5">
                 Message each other on Telegram to arrange the handover.
               </p>
             </div>
           </div>
           <div className="list-row">
-            <span style={{ color: 'var(--label-2)' }}>{claim.claimant.displayName} (owner)</span>
-            <span style={{ fontWeight: 590 }}>{claim.claimant.telegramUsername}</span>
+            <span style={{ color: "var(--label-2)" }}>
+              {claim.claimant.displayName} (owner)
+            </span>
+            <span style={{ fontWeight: 590 }}>
+              {claim.claimant.telegramUsername}
+            </span>
           </div>
           <div className="list-row">
-            <span style={{ color: 'var(--label-2)' }}>{claim.finder.displayName} (finder)</span>
-            <span style={{ fontWeight: 590 }}>{claim.finder.telegramUsername}</span>
+            <span style={{ color: "var(--label-2)" }}>
+              {claim.finder.displayName} (finder)
+            </span>
+            <span style={{ fontWeight: 590 }}>
+              {claim.finder.telegramUsername}
+            </span>
           </div>
         </motion.div>
       )}
 
       {/* REQ-68: after a rejection both reports simply become editable again. */}
-      {claim.status === 'REJECTED' && (
+      {claim.status === "REJECTED" && (
         <div className="card t-sub p-4">
           This claim was rejected. Both reports are active again.
         </div>
@@ -180,7 +201,10 @@ function ItemPanel(props: {
 }) {
   return (
     <div className="card overflow-hidden">
-      <div className="border-b px-4 py-3" style={{ borderColor: 'var(--separator)' }}>
+      <div
+        className="border-b px-4 py-3"
+        style={{ borderColor: "var(--separator)" }}
+      >
         <h3>{props.heading}</h3>
         <p className="t-caption mt-0.5">{props.subheading}</p>
       </div>
@@ -190,30 +214,38 @@ function ItemPanel(props: {
           src={props.photoUrl}
           alt={props.itemName}
           className="h-40 w-full object-cover"
-          style={{ background: 'var(--fill)' }}
+          style={{ background: "var(--fill)" }}
         />
       )}
 
       <div className="p-4">
-        <p className="text-[15px]" style={{ fontWeight: 590 }}>{props.itemName}</p>
+        <p className="text-[15px]" style={{ fontWeight: 590 }}>
+          {props.itemName}
+        </p>
         <p className="t-foot mt-1">
-          {prettyLabel(props.category)} &middot; {prettyLabel(props.colour)} &middot;{' '}
-          {formatBrand(props.brand)}
+          {prettyLabel(props.category)} &middot; {prettyLabel(props.colour)}{" "}
+          &middot; {formatBrand(props.brand)}
         </p>
         <p className="t-foot mt-0.5">
-          {props.dateLabel} {formatDate(props.date)} &middot; {props.locationName}
+          {props.dateLabel} {formatDate(props.date)} &middot;{" "}
+          {props.locationName}
         </p>
 
         {/* REQ-66: present only when the viewer is the Finder. */}
         {props.privateDescription !== undefined && (
-          <div className="mt-3.5 rounded-xl p-3" style={{ background: 'var(--tint-amber-bg)' }}>
+          <div
+            className="mt-3.5 rounded-xl p-3"
+            style={{ background: "var(--tint-amber-bg)" }}
+          >
             <p
               className="t-caption mb-1 font-semibold uppercase tracking-[0.05em]"
-              style={{ color: 'var(--amber)' }}
+              style={{ color: "var(--amber)" }}
             >
               Private description
             </p>
-            <p className="text-[15px]">{props.privateDescription || 'Not provided.'}</p>
+            <p className="text-[15px]">
+              {props.privateDescription || "Not provided."}
+            </p>
           </div>
         )}
       </div>

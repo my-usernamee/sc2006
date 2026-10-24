@@ -1,11 +1,12 @@
+import { Prisma } from "@prisma/client";
 /**
  * The last middleware in the chain. Anything a route throws ends up here and
  * is turned into a JSON response of the shape { error: "message" }.
  */
-import { NextFunction, Request, Response } from 'express';
-import multer from 'multer';
-import { ZodError } from 'zod';
-import { AppError } from '../lib/errors';
+import { NextFunction, Request, Response } from "express";
+import multer from "multer";
+import { ZodError } from "zod";
+import { AppError } from "../lib/errors";
 
 export function errorHandler(
   err: unknown,
@@ -21,20 +22,40 @@ export function errorHandler(
   // Validation errors: report the first problem in plain language.
   if (err instanceof ZodError) {
     const first = err.errors[0];
-    const field = first.path.join('.');
-    return res.status(400).json({ error: field ? `${field}: ${first.message}` : first.message });
+    const field = first.path.join(".");
+    return res
+      .status(400)
+      .json({ error: field ? `${field}: ${first.message}` : first.message });
   }
 
   // File upload problems (too large, wrong field name, ...).
   if (err instanceof multer.MulterError) {
     const message =
-      err.code === 'LIMIT_FILE_SIZE' ? 'Photo must be 5 MB or smaller.' : 'Photo upload failed.';
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Photo must be 5 MB or smaller."
+        : "Photo upload failed.";
     return res.status(400).json({ error: message });
   }
 
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2002")
+      return res
+        .status(409)
+        .json({ error: "This record already exists. Refresh and try again." });
+    if (err.code === "P2003")
+      return res
+        .status(409)
+        .json({ error: "This action conflicts with related records." });
+    if (err.code === "P2025")
+      return res.status(404).json({ error: "Record not found." });
+  }
+  if (err instanceof Error && ["TimeoutError", "AbortError"].includes(err.name))
+    return res
+      .status(504)
+      .json({ error: "Location service timed out. Please try again." });
   // Anything else is a bug: log it, but do not leak details to the user.
   console.error(err);
-  return res.status(500).json({ error: 'Something went wrong on the server.' });
+  return res.status(500).json({ error: "Something went wrong on the server." });
 }
 
 /** Wraps an async route handler so thrown errors reach errorHandler. */

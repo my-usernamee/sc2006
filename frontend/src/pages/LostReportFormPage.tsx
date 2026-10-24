@@ -1,9 +1,13 @@
 /** Create or edit a lost item report (REQ-9 to REQ-24). */
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { lostApi } from '../api';
-import { emptyReportForm, ReportForm, ReportFormValues } from '../components/ReportForm';
-import { ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { lostApi } from "../api";
+import {
+  emptyReportForm,
+  ReportForm,
+  ReportFormValues,
+} from "../components/ReportForm";
+import { ErrorMessage, Loading, PageTitle } from "../components/ui";
 
 export function LostReportFormPage() {
   const { id } = useParams(); // present when editing
@@ -18,24 +22,30 @@ export function LostReportFormPage() {
 
   // When editing, load the current values into the form first.
   useEffect(() => {
+    setInitialValues(isEditing ? null : emptyReportForm);
     if (!id) return;
     lostApi
       .get(id)
       .then((report) => {
+        if (!report.canEdit)
+          throw new Error(
+            "This report cannot be edited while closed or linked to a Pending claim.",
+          );
         setExistingPhotoUrl(report.photoUrl);
         setInitialValues({
           itemName: report.itemName,
           category: report.category,
           colour: report.colour,
-          brand: report.brand ?? '',
+          brand: report.brand ?? "",
           brandUnknown: report.brand === null,
           date: report.dateLost.slice(0, 10),
           location: {
+            locationToken: report.locationToken,
             locationName: report.locationName,
             latitude: report.latitude,
             longitude: report.longitude,
           },
-          privateDescription: report.privateDescription ?? '',
+          privateDescription: report.privateDescription ?? "",
           notificationThreshold: report.notificationThreshold,
         });
       })
@@ -43,7 +53,9 @@ export function LostReportFormPage() {
   }, [id]);
 
   async function handleSubmit(form: FormData) {
-    const report = id ? await lostApi.update(id, form) : await lostApi.create(form);
+    const report = id
+      ? await lostApi.update(id, form)
+      : await lostApi.create(form);
     navigate(`/lost/${report.id}`);
   }
 
@@ -52,12 +64,15 @@ export function LostReportFormPage() {
 
   return (
     <div>
-      <PageTitle>{isEditing ? 'Edit lost item report' : 'Report a lost item'}</PageTitle>
+      <PageTitle>
+        {isEditing ? "Edit lost item report" : "Report a lost item"}
+      </PageTitle>
       <ReportForm
+        key={id ?? "new"}
         variant="lost"
         initialValues={initialValues}
         existingPhotoUrl={existingPhotoUrl}
-        submitLabel={isEditing ? 'Save changes' : 'Submit report'}
+        submitLabel={isEditing ? "Save changes" : "Submit report"}
         onSubmit={handleSubmit}
       />
     </div>

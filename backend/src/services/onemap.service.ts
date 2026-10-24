@@ -19,12 +19,13 @@
  *
  * >>> If your OneMap documentation shows different URLs, change them here. <<<
  */
-import { env } from '../config/env';
-import { AppError, badRequest } from '../lib/errors';
+import { locationProof } from "../lib/locationProof";
+import { env } from "../config/env";
+import { AppError, badRequest } from "../lib/errors";
 
-const TOKEN_URL = 'https://www.onemap.gov.sg/api/auth/post/getToken';
-const REVERSE_GEOCODE_URL = 'https://www.onemap.gov.sg/api/public/revgeocode';
-const SEARCH_URL = 'https://www.onemap.gov.sg/api/common/elastic/search';
+const TOKEN_URL = "https://www.onemap.gov.sg/api/auth/post/getToken";
+const REVERSE_GEOCODE_URL = "https://www.onemap.gov.sg/api/public/revgeocode";
+const SEARCH_URL = "https://www.onemap.gov.sg/api/common/elastic/search";
 
 /** The token we are currently using, and when it stops working. */
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -41,7 +42,7 @@ async function getToken(): Promise<string> {
   if (!env.oneMapEmail || !env.oneMapPassword) {
     throw new AppError(
       503,
-      'OneMap is not configured. Set ONEMAP_EMAIL and ONEMAP_PASSWORD (or ONEMAP_TOKEN) in backend/.env.',
+      "OneMap is not configured. Set ONEMAP_EMAIL and ONEMAP_PASSWORD (or ONEMAP_TOKEN) in backend/.env.",
     );
   }
 
@@ -51,13 +52,20 @@ async function getToken(): Promise<string> {
   }
 
   const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: env.oneMapEmail, password: env.oneMapPassword }),
+    signal: AbortSignal.timeout(8000),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: env.oneMapEmail,
+      password: env.oneMapPassword,
+    }),
   });
 
   if (!response.ok) {
-    throw new AppError(502, 'Could not sign in to OneMap. Check the credentials in backend/.env.');
+    throw new AppError(
+      502,
+      "Could not sign in to OneMap. Check the credentials in backend/.env.",
+    );
   }
 
   const data = (await response.json()) as {
@@ -66,7 +74,7 @@ async function getToken(): Promise<string> {
   };
 
   if (!data.access_token) {
-    throw new AppError(502, 'OneMap did not return an access token.');
+    throw new AppError(502, "OneMap did not return an access token.");
   }
 
   // expiry_timestamp comes back in seconds; fall back to 1 day if it is missing.
@@ -86,26 +94,49 @@ export async function reverseGeocode(latitude: number, longitude: number) {
   const token = await getToken();
 
   const url = `${REVERSE_GEOCODE_URL}?location=${latitude},${longitude}&buffer=100&addressType=All`;
-  const response = await fetch(url, { headers: { Authorization: token } });
+  const response = await fetch(url, {
+    headers: { Authorization: token },
+    signal: AbortSignal.timeout(8000),
+  });
 
   if (!response.ok) {
-    throw new AppError(502, 'Could not look up that location. Please try again.');
+    throw new AppError(
+      502,
+      "Could not look up that location. Please try again.",
+    );
   }
 
   const data = (await response.json()) as {
-    GeocodeInfo?: Array<{ BUILDINGNAME?: string; ROAD?: string; BLOCK?: string }>;
+    GeocodeInfo?: Array<{
+      BUILDINGNAME?: string;
+      ROAD?: string;
+      BLOCK?: string;
+    }>;
   };
 
   const nearest = data.GeocodeInfo?.[0];
+  if (
+    !nearest ||
+    ((!nearest.BUILDINGNAME || nearest.BUILDINGNAME === "NIL") &&
+      (!nearest.ROAD || nearest.ROAD === "NIL"))
+  )
+    throw new AppError(
+      422,
+      "No named location was found here. Please select another point.",
+    );
 
-  // Prefer a building name, then the road, then fall back to the raw coordinates
-  // so the user is never blocked from submitting a report.
+  // A verified named location is mandatory; failures never accept raw coordinates.
   const locationName =
-    nearest?.BUILDINGNAME && nearest.BUILDINGNAME !== 'NIL'
+    nearest?.BUILDINGNAME && nearest.BUILDINGNAME !== "NIL"
       ? nearest.BUILDINGNAME
       : (nearest?.ROAD ?? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
 
-  return { locationName, latitude, longitude };
+  return {
+    locationName,
+    latitude,
+    longitude,
+    locationToken: locationProof({ locationName, latitude, longitude }),
+  };
 }
 
 /**
@@ -114,13 +145,13 @@ export async function reverseGeocode(latitude: number, longitude: number) {
  * no token - but we still proxy it to keep all OneMap traffic in one place.
  */
 export async function searchPlaces(query: string) {
-  if (!query.trim()) throw badRequest('Enter something to search for.');
+  if (!query.trim()) throw badRequest("Enter something to search for.");
 
   const url = `${SEARCH_URL}?searchVal=${encodeURIComponent(query)}&returnGeom=Y&getAddrDetails=Y&pageNum=1`;
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
 
   if (!response.ok) {
-    throw new AppError(502, 'Location search is unavailable right now.');
+    throw new AppError(502, "Location search is unavailable right now.");
   }
 
   const data = (await response.json()) as {

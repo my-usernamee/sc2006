@@ -1,7 +1,7 @@
 /** One of the user's own found reports, with edit and delete (REQ-39, REQ-40). */
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { foundApi } from '../api';
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { foundApi } from "../api";
 import {
   ErrorMessage,
   formatBrand,
@@ -10,11 +10,11 @@ import {
   PageTitle,
   Row,
   StatusBadge,
-} from '../components/ui';
-import { FoundReport, prettyLabel } from '../types';
+} from "../components/ui";
+import { FoundReport, prettyLabel } from "../types";
 
 export function MyFoundReportDetailPage() {
-  const { id = '' } = useParams();
+  const { id = "" } = useParams();
   const navigate = useNavigate();
   const [report, setReport] = useState<FoundReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,21 +29,24 @@ export function MyFoundReportDetailPage() {
   }, [id]);
 
   async function handleDelete() {
-    if (!confirm('Delete this found item report? This cannot be undone.')) return;
+    if (!confirm("Delete this found item report? This cannot be undone."))
+      return;
     try {
       await foundApi.remove(id);
-      navigate('/found');
+      navigate("/found");
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
   if (loading) return <Loading />;
-  if (!report) return <ErrorMessage message={error ?? 'Report not found.'} />;
+  if (!report) return <ErrorMessage message={error ?? "Report not found."} />;
 
   return (
     <div>
-      <PageTitle action={<StatusBadge status={report.status} />}>{report.itemName}</PageTitle>
+      <PageTitle action={<StatusBadge status={report.status} />}>
+        {report.itemName}
+      </PageTitle>
       <ErrorMessage message={error} />
 
       {report.photoUrl && (
@@ -72,9 +75,17 @@ export function MyFoundReportDetailPage() {
       )}
 
       {/* REQ-39 / REQ-40: only while the report is still Open. */}
-      {report.status === 'OPEN' && (
+      {report.locked && (
+        <p className="card mb-4 p-4">
+          This report is locked while an ownership claim is Pending.
+        </p>
+      )}
+      {report.canEdit && (
         <div className="flex gap-3">
-          <Link to={`/found/${report.id}/edit`} className="btn-secondary flex-1">
+          <Link
+            to={`/found/${report.id}/edit`}
+            className="btn-secondary flex-1"
+          >
             Edit
           </Link>
           <button onClick={handleDelete} className="btn-danger flex-1">
@@ -85,4 +96,3 @@ export function MyFoundReportDetailPage() {
     </div>
   );
 }
-

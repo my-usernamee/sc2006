@@ -11,8 +11,9 @@
  *   REQ-66           the Finder sees BOTH descriptions during claim review
  *   REQ-70           both users see each other's Telegram after approval
  */
-import { FoundItemReport, LostItemReport, User } from '@prisma/client';
-import { photoUrl } from '../middleware/upload';
+import { FoundItemReport, LostItemReport, User } from "@prisma/client";
+import { locationProof } from "../lib/locationProof";
+import { photoUrl } from "../middleware/upload";
 
 /** The logged-in user's own account details. */
 export function toAccountDto(user: User) {
@@ -29,7 +30,7 @@ export function toAccountDto(user: User) {
  * Deliberately has NO telegramUsername and NO privateDescription (REQ-59).
  */
 export function toPublicFoundDto(
-  report: FoundItemReport & { user?: Pick<User, 'displayName'> },
+  report: FoundItemReport & { user?: Pick<User, "displayName"> },
 ) {
   return {
     id: report.id,
@@ -38,6 +39,7 @@ export function toPublicFoundDto(
     colour: report.colour,
     brand: report.brand, // null means "Unknown"
     dateFound: report.dateFound,
+    locationToken: locationProof(report),
     locationName: report.locationName,
     latitude: report.latitude,
     longitude: report.longitude,
@@ -56,6 +58,7 @@ export function toOwnLostDto(report: LostItemReport) {
     colour: report.colour,
     brand: report.brand,
     dateLost: report.dateLost,
+    locationToken: locationProof(report),
     locationName: report.locationName,
     latitude: report.latitude,
     longitude: report.longitude,
@@ -90,7 +93,7 @@ export function toClaimDto(
   },
   options: { viewerIsFinder: boolean },
 ) {
-  const revealContacts = claim.status === 'APPROVED'; // REQ-70
+  const revealContacts = claim.status === "APPROVED"; // REQ-70
   const showDescriptions = options.viewerIsFinder; // REQ-66
 
   return {
@@ -98,6 +101,8 @@ export function toClaimDto(
     status: claim.status,
     createdAt: claim.createdAt,
     decidedAt: claim.decidedAt,
+    canReview: options.viewerIsFinder && claim.status === "PENDING",
+    viewerIsFinder: options.viewerIsFinder,
 
     lostReport: {
       id: claim.lostReport.id,
@@ -108,7 +113,9 @@ export function toClaimDto(
       dateLost: claim.lostReport.dateLost,
       locationName: claim.lostReport.locationName,
       photoUrl: photoUrl(claim.lostReport.photoPath),
-      privateDescription: showDescriptions ? claim.lostReport.privateDescription : undefined,
+      privateDescription: showDescriptions
+        ? claim.lostReport.privateDescription
+        : undefined,
     },
 
     foundReport: {
@@ -120,17 +127,23 @@ export function toClaimDto(
       dateFound: claim.foundReport.dateFound,
       locationName: claim.foundReport.locationName,
       photoUrl: photoUrl(claim.foundReport.photoPath),
-      privateDescription: showDescriptions ? claim.foundReport.privateDescription : undefined,
+      privateDescription: showDescriptions
+        ? claim.foundReport.privateDescription
+        : undefined,
     },
 
     // Contact details appear only after the Finder approves the claim.
     claimant: {
       displayName: claim.lostReport.user.displayName,
-      telegramUsername: revealContacts ? claim.lostReport.user.telegramUsername : undefined,
+      telegramUsername: revealContacts
+        ? claim.lostReport.user.telegramUsername
+        : undefined,
     },
     finder: {
       displayName: claim.foundReport.user.displayName,
-      telegramUsername: revealContacts ? claim.foundReport.user.telegramUsername : undefined,
+      telegramUsername: revealContacts
+        ? claim.foundReport.user.telegramUsername
+        : undefined,
     },
   };
 }

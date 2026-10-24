@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: foundit
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: foundit
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foundit"]
+      interval: 3s
+      retries: 15
+  app:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgresql://foundit:local-development-only@db:5432/foundit
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your shell or a local uncommitted .env file}
+      ONEMAP_EMAIL: ${ONEMAP_EMAIL:-}
+      ONEMAP_PASSWORD: ${ONEMAP_PASSWORD:-}
+      ONEMAP_TOKEN: ${ONEMAP_TOKEN:-}
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: development
+    volumes:
+      - photos:/app/backend/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  database:
+  photos:

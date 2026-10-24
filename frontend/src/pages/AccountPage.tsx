@@ -1,13 +1,15 @@
 /** Account management (REQ-7). */
-import { FormEvent, useState } from 'react';
-import { authApi } from '../api';
-import { useAuth } from '../auth/AuthContext';
-import { ErrorMessage, PageTitle, SuccessMessage } from '../components/ui';
+import { FormEvent, useState } from "react";
+import { authApi } from "../api";
+import { useAuth } from "../auth/AuthContext";
+import { ErrorMessage, PageTitle, SuccessMessage } from "../components/ui";
 
 export function AccountPage() {
   const { user, setUser } = useAuth();
-  const [displayName, setDisplayName] = useState(user?.displayName ?? '');
-  const [telegramUsername, setTelegramUsername] = useState(user?.telegramUsername ?? '');
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [telegramUsername, setTelegramUsername] = useState(
+    user?.telegramUsername ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -18,9 +20,12 @@ export function AccountPage() {
     setSaved(null);
     setBusy(true);
     try {
-      const updated = await authApi.updateAccount({ displayName, telegramUsername });
+      const updated = await authApi.updateAccount({
+        displayName,
+        telegramUsername,
+      });
       setUser(updated);
-      setSaved('Your details have been saved.');
+      setSaved("Your details have been saved.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -39,7 +44,11 @@ export function AccountPage() {
           {/* The email address identifies the account and cannot be changed. */}
           <div>
             <label className="label">NTU email</label>
-            <input className="input bg-[var(--fill)]" value={user?.email ?? ''} disabled />
+            <input
+              className="input bg-[var(--fill)]"
+              value={user?.email ?? ""}
+              disabled
+            />
           </div>
 
           <div>
@@ -63,7 +72,14 @@ export function AccountPage() {
           </div>
 
           <button className="btn-primary w-full" disabled={busy}>
-            {busy ? 'Saving...' : 'Save changes'}
+            {busy ? "Saving..." : "Save changes"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary w-full"
+            onClick={() => window.history.back()}
+          >
+            Cancel / Back
           </button>
         </form>
       </div>

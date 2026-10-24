@@ -77,6 +77,7 @@ model User {
   telegramUsername String // REQ-3, revealed only after REQ-70
   createdAt        DateTime @default(now())
 
+  sessions      Session[]
   lostReports   LostItemReport[]
   foundReports  FoundItemReport[]
   claims        OwnershipClaim[]
@@ -105,6 +106,7 @@ model LostItemReport {
   status    LostStatus @default(ACTIVE)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
 
   user    User             @relation(fields: [userId], references: [id])
   matches MatchResult[]
@@ -134,6 +136,7 @@ model FoundItemReport {
   status    FoundStatus @default(OPEN)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
 
   user    User             @relation(fields: [userId], references: [id])
   matches MatchResult[]
@@ -150,6 +153,7 @@ model MatchResult {
   lostReportId  String
   foundReportId String
 
+  eligible   Boolean @default(true)
   matchScore Int // REQ-50: whole number 0..100
   notified   Boolean @default(false) // REQ-52: stops a second notification for the same pair
 
@@ -198,4 +202,15 @@ model Notification {
   claim       OwnershipClaim? @relation(fields: [claimId], references: [id])
 
   @@index([recipientId, createdAt])
+}
+
+// Revocable, per-browser sessions. Only token hashes are stored.
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

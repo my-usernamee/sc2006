@@ -1,10 +1,14 @@
 /** Browse, search and filter Open found reports (SRS 4.5, REQ-55 to REQ-59). */
-import { useEffect, useState } from 'react';
-import { foundApi } from '../api';
-import { CardSkeletonGrid, StaggerItem, StaggerList } from '../components/motion';
-import { FoundReportCard } from '../components/ReportCard';
-import { EmptyState, ErrorMessage, PageTitle } from '../components/ui';
-import { CATEGORIES, COLOURS, FoundReport, prettyLabel } from '../types';
+import { useEffect, useState } from "react";
+import { foundApi } from "../api";
+import {
+  CardSkeletonGrid,
+  StaggerItem,
+  StaggerList,
+} from "../components/motion";
+import { FoundReportCard } from "../components/ReportCard";
+import { EmptyState, ErrorMessage, PageTitle } from "../components/ui";
+import { CATEGORIES, COLOURS, FoundReport, prettyLabel } from "../types";
 
 export function BrowsePage() {
   const [reports, setReports] = useState<FoundReport[]>([]);
@@ -14,27 +18,36 @@ export function BrowsePage() {
   const [error, setError] = useState<string | null>(null);
 
   // REQ-57 and REQ-58: the search term and the two filters.
-  const [q, setQ] = useState('');
-  const [category, setCategory] = useState('');
-  const [colour, setColour] = useState('');
+  const [q, setQ] = useState("");
+  const [category, setCategory] = useState("");
+  const [colour, setColour] = useState("");
 
   // Re-fetch whenever a filter changes. The short delay stops a request going
   // out on every single keystroke.
   useEffect(() => {
+    let active = true;
     setLoading(true);
     const timer = setTimeout(() => {
       foundApi
         .browse({ q, category, colour, page })
         .then((data) => {
+          if (!active) return;
           setReports(data.reports);
           setTotal(data.total);
           setError(null);
         })
-        .catch((e) => setError((e as Error).message))
-        .finally(() => setLoading(false));
+        .catch((e) => {
+          if (active) setError((e as Error).message);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [q, category, colour, page]);
 
   // Changing a filter should take the user back to the first page.
@@ -57,7 +70,11 @@ export function BrowsePage() {
 
         {/* REQ-58: filter by category and colour */}
         <div className="grid grid-cols-2 gap-3">
-          <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select
+            className="input"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
             <option value="">All categories</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -66,7 +83,11 @@ export function BrowsePage() {
             ))}
           </select>
 
-          <select className="input" value={colour} onChange={(e) => setColour(e.target.value)}>
+          <select
+            className="input"
+            value={colour}
+            onChange={(e) => setColour(e.target.value)}
+          >
             <option value="">All colours</option>
             {COLOURS.map((c) => (
               <option key={c} value={c}>

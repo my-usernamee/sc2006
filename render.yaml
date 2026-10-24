@@ -1,0 +1,31 @@
+# Paid web service + persistent disk. Review costs in Render before creation.
+services:
+  - type: web
+    name: foundit
+    runtime: node
+    plan: 0.5c-512mb
+    region: singapore
+    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run prisma:generate --prefix backend && npm run build --prefix backend && npm run build --prefix frontend
+    startCommand: npm run db:deploy --prefix backend && npm start --prefix backend
+    healthCheckPath: /api/health
+    disk:
+      name: foundit-photos
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: NODE_ENV
+        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ONEMAP_EMAIL
+        sync: false
+      - key: ONEMAP_PASSWORD
+        sync: false
+      - key: UPLOAD_DIR
+        value: /var/data/uploads

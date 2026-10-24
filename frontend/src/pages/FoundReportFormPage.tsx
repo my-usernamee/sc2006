@@ -1,9 +1,13 @@
 /** Create or edit a found item report (REQ-26 to REQ-39). */
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { foundApi } from '../api';
-import { emptyReportForm, ReportForm, ReportFormValues } from '../components/ReportForm';
-import { ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { foundApi } from "../api";
+import {
+  emptyReportForm,
+  ReportForm,
+  ReportFormValues,
+} from "../components/ReportForm";
+import { ErrorMessage, Loading, PageTitle } from "../components/ui";
 
 export function FoundReportFormPage() {
   const { id } = useParams(); // present when editing
@@ -17,24 +21,30 @@ export function FoundReportFormPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setInitialValues(isEditing ? null : emptyReportForm);
     if (!id) return;
     foundApi
       .get(id)
       .then((report) => {
+        if (!report.canEdit)
+          throw new Error(
+            "This report cannot be edited while closed or linked to a Pending claim.",
+          );
         setExistingPhotoUrl(report.photoUrl);
         setInitialValues({
           itemName: report.itemName,
           category: report.category,
           colour: report.colour,
-          brand: report.brand ?? '',
+          brand: report.brand ?? "",
           brandUnknown: report.brand === null,
           date: report.dateFound.slice(0, 10),
           location: {
+            locationToken: report.locationToken,
             locationName: report.locationName,
             latitude: report.latitude,
             longitude: report.longitude,
           },
-          privateDescription: report.privateDescription ?? '',
+          privateDescription: report.privateDescription ?? "",
           notificationThreshold: 0, // not used by found reports
         });
       })
@@ -42,7 +52,9 @@ export function FoundReportFormPage() {
   }, [id]);
 
   async function handleSubmit(form: FormData) {
-    const report = id ? await foundApi.update(id, form) : await foundApi.create(form);
+    const report = id
+      ? await foundApi.update(id, form)
+      : await foundApi.create(form);
     navigate(`/found/${report.id}`);
   }
 
@@ -51,12 +63,15 @@ export function FoundReportFormPage() {
 
   return (
     <div>
-      <PageTitle>{isEditing ? 'Edit found item report' : 'Report a found item'}</PageTitle>
+      <PageTitle>
+        {isEditing ? "Edit found item report" : "Report a found item"}
+      </PageTitle>
       <ReportForm
+        key={id ?? "new"}
         variant="found"
         initialValues={initialValues}
         existingPhotoUrl={existingPhotoUrl}
-        submitLabel={isEditing ? 'Save changes' : 'Submit report'}
+        submitLabel={isEditing ? "Save changes" : "Submit report"}
         onSubmit={handleSubmit}
       />
     </div>

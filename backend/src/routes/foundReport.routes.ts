@@ -1,11 +1,14 @@
+import { forbidden } from "../lib/errors";
+import { reportPermissions } from "../lib/permissions";
+import { removeUnusedPhoto } from "../middleware/upload";
 /** Found Item Report routes (SRS 4.3) and browsing/searching (SRS 4.5). */
-import { Router } from 'express';
-import { toOwnFoundDto, toPublicFoundDto } from '../dto';
-import { wrap } from '../middleware/errorHandler';
-import { requireAuth, userIdOf } from '../middleware/requireAuth';
-import { uploadPhoto } from '../middleware/upload';
-import * as foundService from '../services/foundReport.service';
-import { browseQuerySchema, foundReportSchema } from '../validation/schemas';
+import { Router } from "express";
+import { toOwnFoundDto, toPublicFoundDto } from "../dto";
+import { wrap } from "../middleware/errorHandler";
+import { requireAuth, userIdOf } from "../middleware/requireAuth";
+import { uploadPhoto } from "../middleware/upload";
+import * as foundService from "../services/foundReport.service";
+import { browseQuerySchema, foundReportSchema } from "../validation/schemas";
 
 export const foundReportRoutes = Router();
 
@@ -17,10 +20,11 @@ foundReportRoutes.use(requireAuth);
  * toPublicFoundDto strips the Telegram username and private description (REQ-59).
  */
 foundReportRoutes.get(
-  '/',
+  "/",
   wrap(async (req, res) => {
     const filters = browseQuerySchema.parse(req.query);
-    const { reports, total, page, pageSize } = await foundService.browse(filters);
+    const { reports, total, page, pageSize } =
+      await foundService.browse(filters);
 
     res.json({
       reports: reports.map(toPublicFoundDto),
@@ -33,16 +37,23 @@ foundReportRoutes.get(
 
 // The user's own found reports (they may see their own private description).
 foundReportRoutes.get(
-  '/mine',
+  "/mine",
   wrap(async (req, res) => {
     const reports = await foundService.listMyReports(userIdOf(req));
-    res.json(reports.map(toOwnFoundDto));
+    res.json(
+      await Promise.all(
+        reports.map(async (report) => ({
+          ...toOwnFoundDto(report),
+          ...(await reportPermissions(report, userIdOf(req), "found")),
+        })),
+      ),
+    );
   }),
 );
 
 // REQ-26 to REQ-38. The photo is required (REQ-30), checked in the service.
 foundReportRoutes.post(
-  '/',
+  "/",
   uploadPhoto,
   wrap(async (req, res) => {
     const input = foundReportSchema.parse(req.body);
@@ -56,37 +67,54 @@ foundReportRoutes.post(
 );
 
 foundReportRoutes.get(
-  '/:id',
+  "/:id",
   wrap(async (req, res) => {
     const report = await foundService.getReport(req.params.id);
 
     // The owner sees their own private description; everyone else does not.
     const isOwner = report.userId === userIdOf(req);
-    res.json(isOwner ? toOwnFoundDto(report) : toPublicFoundDto(report));
+    res.json({
+      ...(isOwner ? toOwnFoundDto(report) : toPublicFoundDto(report)),
+      ...(await reportPermissions(report, userIdOf(req), "found")),
+    });
   }),
 );
 
 // REQ-39
 foundReportRoutes.put(
-  '/:id',
+  "/:id",
+  (req, _res, next) => {
+    foundService
+      .getOwnedReport(req.params.id, userIdOf(req))
+      .then((report) => {
+        if (report.status !== "OPEN")
+          throw forbidden("Report is not editable.");
+        next();
+      })
+      .catch(next);
+  },
   uploadPhoto,
   wrap(async (req, res) => {
     const input = foundReportSchema.parse(req.body);
+    const old = await foundService.getOwnedReport(req.params.id, userIdOf(req));
     const report = await foundService.updateReport(
       req.params.id,
       userIdOf(req),
       input,
       req.file?.filename ?? null,
     );
+    if (req.file) await removeUnusedPhoto(old.photoPath);
     res.json(toOwnFoundDto(report));
   }),
 );
 
 // REQ-40
 foundReportRoutes.delete(
-  '/:id',
+  "/:id",
   wrap(async (req, res) => {
+    const old = await foundService.getOwnedReport(req.params.id, userIdOf(req));
     await foundService.deleteReport(req.params.id, userIdOf(req));
+    await removeUnusedPhoto(old.photoPath);
     res.json({ ok: true });
   }),
 );
