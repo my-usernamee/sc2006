@@ -23,3 +23,6 @@ npm-debug.log*
 # editor
 .vscode/
 .idea/
+
+# test output
+coverage/

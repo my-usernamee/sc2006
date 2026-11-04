@@ -7,7 +7,7 @@
  *
  * Each test below is labelled with the path through the code that it covers.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from '@jest/globals';
 import { calculateMatchScore, colourSimilarity, MatchInput } from '../src/domain/matching';
 
 const AT_NTU = { latitude: 1.34639, longitude: 103.68194 };

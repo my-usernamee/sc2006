@@ -5,7 +5,7 @@
  * The input domain of calculateMatchScore is divided into classes, and one
  * representative value is tested from each, plus the values on the boundaries.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from '@jest/globals';
 import { calculateMatchScore, MatchInput } from '../src/domain/matching';
 
 const NTU_HIVE = { latitude: 1.34639, longitude: 103.68194 };

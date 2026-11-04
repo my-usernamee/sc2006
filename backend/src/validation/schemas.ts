@@ -70,9 +70,15 @@ export const updateAccountSchema = z.object({
 const reportDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must look like YYYY-MM-DD.')
-  .transform((s) => new Date(s + 'T00:00:00.000Z'))
-  .refine((d) => !Number.isNaN(d.getTime()), 'That is not a real date.')
-  .refine((d) => d.getTime() <= Date.now(), 'The date cannot be in the future.');
+  .refine((value) => {
+    const date = new Date(value + 'T00:00:00.000Z');
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, 'That is not a real date.')
+  .refine((value) => {
+    const singaporeToday = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return value <= singaporeToday;
+  }, 'The date cannot be in the future.')
+  .transform((value) => new Date(value + 'T00:00:00.000Z'));
 
 /**
  * Brand is required, but instead of typing one the user may tick

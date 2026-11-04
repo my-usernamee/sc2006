@@ -58,8 +58,18 @@ cd frontend && npm install && npm run dev     # :5173
 ### Tests
 
 ```bash
-cd backend && npm test
+cd backend
+npm ci
+npx prisma generate
+npm test
+npm run test:coverage
 ```
+
+Tests use Jest and ts-jest, with Supertest for selected HTTP routes. The suite has
+206 passing checks across accounts, validation, reports, browsing, matching,
+notifications, claims and privacy. Database calls are mocked; tests do not connect
+to Neon or use a real account. See [testing notes](docs/testing.md) for scope and
+remaining browser, performance and persistence checks.
 
 ## Flow
 
